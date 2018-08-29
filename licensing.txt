@@ -1,0 +1,14 @@
+Licenses used by components of FSChoice:
+
+Lift - Apache 2.0
+net.tanesha.recaptcha4j - Apache 2.0
+org.jasypt.lite - Apache 2.0
+org.slf4j - MIT License
+ch.qos.logback - dual-licensed under the EPL v1.0 and the LGPL 2.1, but used behind the slf4j API,
+                 which is MIT License
+org.luaj - MIT License
+com.h2database -  dual licensed and available under the MPL 2.0 (Mozilla Public License Version 2.0) or
+                  under the EPL 1.0 (Eclipse Public License)
+net.bull.javamelody - ASL since v1.50
+mysql connector - GPL, but see https://www.mysql.com/about/legal/licensing/foss-exception/
+org.apache.tika - Apache

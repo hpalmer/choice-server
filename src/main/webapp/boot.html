@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Stanford GSE AAALab Server</title>
+    <style type="text/css">
+        body {
+            background-color: #252161;
+        }
+        #bgimage {
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
+            z-index: -1;
+        }
+        form > header {
+            font-size: x-large;
+            font-weight: bold;
+            border: 2px black;
+            cursor: help;
+            grid-column: span 3;
+        }
+        .page {
+            display: none;
+            position: absolute;
+            top: 50px;
+            left: 50px;
+            background-color: lightyellow;
+            /*border: 2px outset black;*/
+            padding: 20px;
+            -webkit-border-radius: 10px;
+            -moz-border-radius: 10px;
+            border-radius: 10px;
+            border: ridge darkred;
+        }
+        form {
+            font-family: sans-serif;
+            display: grid;
+            grid-template-columns: [left1] 12em [left2] 1fr [controls] 2fr;
+            grid-auto-flow: row;
+            grid-gap: .8em 1.5em;
+            padding: 1.2em;
+        }
+        form label {
+            cursor: help;
+        }
+        form  label {
+            grid-column: 1 / 2;
+        }
+        form  .left1 {
+            grid-column: left1;
+            grid-row: auto;
+            border: 1px solid black;
+        }
+        form  .left2 {
+            grid-column: left2;
+            grid-row: auto;
+            border: 1px solid black;
+        }
+        form  input,
+        form  select,
+        form  textarea,
+        form  .rightbutton {
+            grid-column: controls;
+            grid-row: auto;
+            padding: .4em;
+        }
+        input[type="button"] {
+            -webkit-border-radius: 5px;
+            -moz-border-radius: 5px;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        input[type="text"],
+        input[type="password"] {
+            border: 3px inset;
+        }
+        .reghelp, .regerror, .page_help {
+            display: none;
+            position: absolute;
+            margin-top: 50px;
+            -webkit-border-radius: 10px;
+            -moz-border-radius: 10px;
+            border-radius: 10px;
+            padding: 10px;
+            background-color: white;
+        }
+    </style>
+    <script type="text/javascript">
+        <!--
+        class Index {
+            constructor() {
+                this.currentPage = undefined;
+                this.labelHoverHandler = (e) => this.showLabelHelp(e);
+                this.session = new ServerSession();
+                this.session.getSession().then((sessionInfo) => {
+                    if (sessionInfo.user.path === '/System/Users/guest') {
+                        this.enableMapButton();
+                    }
+                    else {
+                        this.showUpload();
+                    }
+                });
+            }
+
+            enableMapButton() {
+                this.mapClickHandler = () => this.showRegistration();
+                const btnhere = document.querySelector('#btnhere');
+                btnhere.addEventListener('click', this.mapClickHandler);
+                btnhere.style.cursor = 'pointer';
+            }
+
+            disableMapButton() {
+                const btnhere = document.querySelector('#btnhere');
+                btnhere.removeEventListener('click', this.mapClickHandler);
+                btnhere.style.cursor = 'default';
+            }
+
+            showRegistration() {
+                this.disableMapButton();
+                this.currentPage = document.querySelector('#regpage');
+                this.currentPage.style.display = 'block';
+                this.currentPage.querySelectorAll('label').forEach((elem) => {
+                    elem.addEventListener('mouseenter', this.labelHoverHandler);
+                    elem.addEventListener('mouseleave', this.labelHoverHandler);
+                });
+                this.legendElement = this.currentPage.querySelector('header');
+                this.legendElement.addEventListener('mouseenter', this.labelHoverHandler);
+                this.legendElement.addEventListener('mouseleave', this.labelHoverHandler);
+                this.setButtonHandlers(
+                    () => {                             // next
+                        this.endRegistration();
+                        this.showLogin();
+                    },
+                    () => {                             // cancel
+                        this.endRegistration();
+                        this.enableMapButton();
+                    },
+                    () => this.doRegistration()         // submit
+                );
+                this.currentPage.querySelector('#reguid').focus();
+            }
+
+            doRegistration() {
+                const usernameElement = this.currentPage.querySelector('#reguid');
+                const passwordElement = this.currentPage.querySelector('#regpwd');
+                const passwordElement2 = this.currentPage.querySelector('#regpwd2');
+                const username = usernameElement.value;
+                const password = passwordElement.value;
+                const passwordCheck = passwordElement2.value;
+                if (username && password) {
+                    if (password === passwordCheck) {
+                        const email = this.currentPage.querySelector('#regemail').value;
+                        const regcode = this.currentPage.querySelector('#regcode').value;
+                        const promise = this.session.register(username, password, email, regcode);
+                        return promise.then((obj) => {
+                            this.endRegistration();
+                            this.showLogin();
+                            this.currentPage.querySelector('#userid').value = username;
+                            this.currentPage.querySelector('#pwd').focus();
+                            return obj;
+                        }).catch((error) => {
+                            console.error(`Error on registration: ${error}`);
+                        });
+                    }
+                    return Promise.reject('passwords do not match');
+                }
+                return Promise.reject('username or password missing');
+            }
+
+            endRegistration() {
+                this.clearButtonHandlers();
+                this.legendElement.removeEventListener('mouseenter', this.labelHoverHandler);
+                this.legendElement.removeEventListener('mouseleave', this.labelHoverHandler);
+                this.currentPage.querySelectorAll('label').forEach((elem) => {
+                    elem.removeEventListener('mouseenter', this.labelHoverHandler);
+                    elem.removeEventListener('mouseleave', this.labelHoverHandler);
+                });
+                this.currentPage.style.display = '';
+                this.currentPage = undefined;
+            }
+
+            showLogin() {
+                this.currentPage = document.querySelector('#loginpage');
+                this.currentPage.style.display = 'block';
+                this.setButtonHandlers(
+                    null,                               // next
+                    () => {                             // cancel
+                        this.endLogin();
+                        this.enableMapButton();
+                    },
+                    () => this.doLogin()                // submit
+                )
+            }
+
+            doLogin() {
+                const username = this.currentPage.querySelector('#userid').value;
+                const password = this.currentPage.querySelector('#pwd').value;
+                if (username && password) {
+                    return this.session.login(username, password).then((obj) => {
+                        this.endLogin();
+                        this.showUpload();
+                        return obj;
+                    });
+                }
+                console.error('username or password missing');
+            }
+
+            endLogin() {
+                this.clearButtonHandlers();
+                this.currentPage.style.display = '';
+                this.enableMapButton();
+            }
+
+            showUpload() {
+                this.currentPage = document.querySelector('#uploadpage');
+                this.currentPage.style.display = 'block';
+                this.legendElement = this.currentPage.querySelector('header');
+                this.legendElement.addEventListener('mouseenter', this.labelHoverHandler);
+                this.legendElement.addEventListener('mouseleave', this.labelHoverHandler);
+                this.currentPage.querySelectorAll('label').forEach((elem) => {
+                    elem.addEventListener('mouseenter', this.labelHoverHandler);
+                    elem.addEventListener('mouseleave', this.labelHoverHandler);
+                });
+                this.setButtonHandlers(
+                    null,                           // next
+                    () => {                         // canncel
+                        this.endUpload();
+                        this.enableMapButton();
+                    },
+                    () => this.doUpload()           // submit
+                )
+            }
+
+            doUpload() {
+                const files = this.currentPage.querySelector('#uploadfile').files;
+                if (files.length > 0) {
+                    const file = files[0];
+                    this.session.upload(file).then((response) => {
+                        if (response.status === 200) {
+                            alert('upload succeeded!');
+                        }
+                        else {
+                            alert(`upload failed: ${response.status} ${response.statusText}`);
+                        }
+                        this.endUpload();
+                        location.reload(true);
+                    });
+                }
+            }
+
+            endUpload() {
+                this.clearButtonHandlers();
+                this.legendElement.addEventListener('mouseenter', this.labelHoverHandler);
+                this.legendElement.addEventListener('mouseleave', this.labelHoverHandler);
+                this.currentPage.querySelectorAll('label').forEach((elem) => {
+                    elem.removeEventListener('mouseenter', this.labelHoverHandler);
+                    elem.removeEventListener('mouseleave', this.labelHoverHandler);
+                });
+                this.currentPage.style.display = '';
+                this.currentPage = undefined;
+            }
+            setButtonHandlers(fNext, fCancel, fSubmit) {
+                this.nextButtonElement = this.currentPage.querySelector('.bnext');
+                this.cancelButtonElement = this.currentPage.querySelector('.bcancel');
+                this.submitButtonElement = this.currentPage.querySelector('.bsubmit');
+                this.nextButtonHandler = fNext;
+                this.cancelButtonHandler = fCancel;
+                this.submitButtonHandler = fSubmit;
+                this.buttonHelper((element, handler) => element.addEventListener('click', handler));
+            }
+
+            buttonHelper(f) {
+                const pairs = [
+                    [this.nextButtonElement, this.nextButtonHandler],
+                    [this.cancelButtonElement, this.cancelButtonHandler],
+                    [this.submitButtonElement, this.submitButtonHandler]
+                ];
+                pairs.forEach((pair) => {
+                    const [element, handler] = pair;
+                    if (element) {
+                        f(element, handler);
+                        element.addEventListener('click', handler);
+                    }
+                });
+            }
+
+            clearButtonHandlers() {
+                this.buttonHelper((element, handler) => element.removeEventListener('click', handler));
+            }
+
+            showLabelHelp(e) {
+                let helpElem;
+                if (e.target === this.legendElement) {
+                   helpElem = this.currentPage.querySelector('.page_help');
+                }
+                else {
+                    const helpId = `#${e.target.htmlFor}_help`;
+                    helpElem = document.querySelector(helpId);
+                    console.log(`${e.type}: ${helpId}`);
+                }
+                if (helpElem) {
+                    switch (e.type) {
+                        case 'mouseenter':
+                            helpElem.style.display = 'block';
+                            break;
+                        case 'mouseleave':
+                            helpElem.style.display = '';
+                            break;
+                    }
+                }
+            }
+        }
+
+        class ServerSession {
+            constructor() {
+                this.sessionInfo = undefined;
+                const path = document.location.pathname;
+                const i = path.lastIndexOf('/');
+                this.baseURI = `${document.location.origin}${path.substring(0, i + 1)}`;
+                this.sessionPromise = this.getSession();
+            }
+
+            getSession() {
+                if (this.sessionInfo) {
+                    return Promise.resolve(this.sessionInfo);
+                }
+                if (this.sessionPromise) {
+                    return this.sessionPromise;
+                }
+                const postIt = () => this.post({ op: 'getsession', page: '' }).then((response) => {
+                    return this.processJsonResponse(response).then((obj) => {
+                        this.sessionInfo = obj;
+                        this.sessionPromise = undefined;
+                        setTimeout(postIt, 15 * 60 * 1000);
+                        return obj;
+                    });
+                });
+                return postIt();
+            }
+
+            register(username, password, email, regcode) {
+                return this.post({
+                    op: 'register',
+                    username,
+                    password,
+                    email,
+                    regcode,
+                    group: '/System/Users'
+                }).then((response) => this.processJsonResponse(response, 0));
+            }
+
+            login(username, password) {
+                return this.post({
+                    op: 'login',
+                    username,
+                    password,
+                    group: '/System/Users'
+                }).then((response) => this.processJsonResponse(response));
+            }
+
+            upload(file) {
+                this.formData = new FormData();
+                this.formData.append('op', 'load');
+                this.formData.append('name', file.name);
+                this.formData.append('todir', '/');
+                this.formData.append('replace', 'always');
+                this.formData.append('lmtime', file.lastModified);
+                this.formData.append('unpack', true);
+                this.formData.append('file', file);
+                return fetch(`${this.baseURI}?api=file`, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    redirect: 'follow',
+                    body: this.formData
+                });
+            }
+
+            processJsonResponse(response, status = 1) {
+                if (response.status === 200) {
+                    return response.json().then((obj) => {
+                        if (obj.status === status) {
+                            return obj;
+                        }
+                        throw new Error(`Error from server: ${obj.msg}`);
+                    });
+                }
+                throw new Error(`Response from server: ${response.status} ${response.statusText}`);
+            }
+
+            post(obj) {
+                return fetch(`${this.baseURI}?api=user`, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    redirect: 'follow',
+                    headers: {
+                        'Content-Type': 'application/json; charset=utf-8'
+                    },
+                    body: JSON.stringify(obj)
+                });
+            }
+        }
+        window.addEventListener('load', () => new Index());
+        //-->
+    </script>
+</head>
+<body>
+    <div id="my_content">
+        <img id="bgimage" src="images/ohnosplash.png" width="717" height="684" usemap="#mymap" />
+        <map name="mymap">
+            <area id="btnhere" coords="520,520,585,565" shape="rect" nohref="nohref" />
+        </map>
+        <div class="page" id="regpage">
+            <form id="regform" action="#">
+                <header>Server Administrator Registration</header>
+                <label class="flabel" for="reguid">Choose your user id:</label>
+                <input id="reguid" type="text" name="userid" />
+                <label class="flabel" for="regpwd">Choose a password:</label>
+                <input id="regpwd" type="password" name="pwd" />
+                <label class="flabel" for="regpwd2">Re-type the password:</label>
+                <input id="regpwd2" type="password" name="pwd2" />
+                <label class="flabel" for="regemail">Your E-Mail Address:</label>
+                <input id="regemail" type="text" name="email" />
+                <label class="flabel" for="regcode">Registration Code:</label>
+                <input id="regcode" type="text" name="regcode" />
+                <input class="bnext left1" type="button" value="Already Registered" />
+                <input class="bcancel left2" type="button" value="Cancel" />
+                <input class="bsubmit rightbutton" type="button" value="Register Me!" />
+            </form>
+            <div class="page_help">
+                This creates the first user account for the server, which becomes
+                a server administrator. If you have already registered, just click
+                the "Already Registered" button to get to the login form. Otherwise
+                enter at least the username and password fields, and then click
+                the "Register Me!" button.
+            </div>
+            <div id="reguid_help" class="reghelp">
+                The user id must be between 3 and 32 characters long, and the
+                first character must be a letter.
+            </div>
+            <div id="reguid_error" class="regerror"></div>
+            <div id="regpwd_help" class="reghelp">
+                A password can contain letters, digits, and most special characters.
+                Space, tab, and control characters are not allowed. There are no
+                restrictions on length, but longer passwords are more secure.
+            </div>
+            <div id="regpwd_error" class="regerror"></div>
+            <div id="regpwd2_help" class="reghelp">
+                Type the password again just to be sure.
+            </div>
+            <div id="regpwd2_error" class="regerror">
+                The passwords don't match!
+            </div>
+            <div id="regemail_help" class="reghelp">
+                Your email address is optional. However, if you do not
+                provide it now, you will not be able to reset your password
+                if you forget it.
+            </div>
+            <div id="regemail_error" class="regerror"></div>
+            <div id="regcode_help" class="reghelp">
+                Enter your registration code if you have one.
+            </div>
+            <div id="regcode_error" class="regerror">
+                Invalid registration code.
+            </div>
+            <div id="submit_error" class="regerror"></div>
+        </div>
+        <div class="page" id="loginpage">
+            <form id="loginform" action="#">
+                <header id="loginhdr">Administrator Login</header>
+                <label class="flabel" for="userid">User Id:</label>
+                <input id="userid" type="text" name="userid" size="18" />
+                <label class="flabel" for="pwd">Password:</label>
+                <input id="pwd" type="password" name="pwd" size="18" />
+                <input class="bcancel left1" type="button" value="Cancel" />
+                <input class="bsubmit rightbutton" type="button" value="Login" />
+            </form>
+        </div>
+        <div class="page" id="uploadpage">
+            <form id="uploadform" action="#">
+                <header>Upload Root Content</header>
+                <label class="flabel" for="uploadfile">.zip or .jar file:</label>
+                <input id="uploadfile" type="file" />
+                <input class="bcancel left1" type="button" value="Cancel" />
+                <input class="bsubmit rightbutton" type="button" value="Upload" />
+            </form>
+            <div class="page_help">
+                Select a .zip or .jar file to be uploaded and unpacked in the server root.
+            </div>
+            <div id="upload_progress" class="reghelp">
+                <div></div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

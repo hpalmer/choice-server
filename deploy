@@ -1,0 +1,8 @@
+#!/bin/bash
+export tcdir="$TOMCAT_HOME/webapps/"
+cp -f target/fschoice.war "$tcdir"
+echo $tcdir
+pushd "$tcdir"
+rm -rf fschoice
+popd
+

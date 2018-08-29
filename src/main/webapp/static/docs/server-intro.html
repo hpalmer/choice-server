@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Choicelet Developer's Guide'</title>
+	<style type="text/css">
+	<!--
+		PRE.cjk { font-family: "NSimSun", monospace }
+		body {
+			font-family: "Times New Roman", serif;
+		}
+		.title {
+			font-size: 18pt;
+			font-weight: bold;
+			text-align: center;
+		}
+		.choice {
+			font-family: "Comic Sans MS",cursive;
+			font-weight: bolder;
+		}
+		.hdr {
+			font-family: "Albany",sans-serif;
+			font-size: 14pt;
+			font-weight: 300;
+			margin-top: 10pt;
+			margin-bottom: 6pt;
+		}
+		.string {
+			color: #2a00ff;
+			font-weight: 300;
+			font-style: italic;
+		}
+		.code {
+			font-family: "Times Roman",monospace;
+			font-size: 10pt;
+			white-space: pre;
+			margin-left: 5%;
+			margin-right: 5%;
+		}
+		.annot {
+			white-space: normal;
+			margin-top: 0;
+			margin-bottom: 0;
+			margin-left: 2em;
+			margin-right: 2em;
+			font-family: arial;
+			font-size: 1.2em;
+		}
+		.tag {
+			color: #3f7f7f;
+			font-weight: 300;
+		}
+		.attr, .keyword {
+			color: #7f007f;
+			font-weight: bold;
+		}
+	-->
+	</style>
+</head>
+<body>
+<div class="title"><span class="choice">Choicelet</span> Developer's Guide</div>
+<div class="hdr">Introduction to the Server Environment</div>
+<p>The underlying components of the <span class="choice">Choice</span>
+server environment are Tomcat and MySQL. Tomcat is what is known as a
+&ldquo;servlet container&rdquo;. It is open-source software from
+Apache, written in Java, and runs in a Java Virtual Machine (JVM).
+MySQL is an open-source relational database with which applications
+running in Tomcat communicate, in order to access persistent storage.
+In a conventional deployment of this architecture, server
+applications would be written in Java and implemented as <a href="http://en.wikipedia.org/wiki/Servlet">servlets</a>
+in Tomcat.</p>
+<p><span class="choice">Choice</span> server
+applications, however, are written in the <a href="http://en.wikipedia.org/wiki/Scala_(programming_language)">Scala</a>
+language, which is compiled to Java byte code, runs in a JVM, and can
+interoperate with code written in Java. They run under a Scala server
+framework called <a href="http://en.wikipedia.org/wiki/Lift_(web_framework)">Lift</a>,
+which runs on Tomcat. Lift provides many facilities for server
+applications, including a mechanism called Mapper that is used to
+persist run-time objects in the database. <span class="choice">Choice</span>
+applications also use Lift's HTML template facility, which is known
+as Snippets.</p>
+<div class="hdr">Users, Groups, and Roles</div>
+<p>The <span class="choice">Choice</span> server
+infrastructure provides support for users and groups. A user may have
+one or more roles with respect to a group, such as child, researcher,
+or administrator, with each role providing different kinds of access
+to the group. Users can be members of multiple groups, and the same
+user account may even be associated with different usernames in
+different groups. Usernames need only be unique within a single
+group, so two users in different groups may have the same username.
+Groups have a directed acyclic graph organization, but user
+membership in groups is not transitive with respect to the graph.
+That is, a user's membership in a group does not automatically confer
+membership in either parent or child groups of that group.</p>
+<p>This rather unusual organization of users and groups is intended
+to support multiple researchers running multiple classroom
+experiments, as well as possibly multiple web-based experiments. Each
+group can have its own &ldquo;guest&rdquo; page, which is presented
+to users who visit the group, but have not logged in. And each group
+can have a &ldquo;home&rdquo; page, which is the starting page for
+users who log in. A group name or group id can be specified as a URL
+parameter when accessing the top-level page of the <span class="choice">Choice</span>
+website. If a group so specified has a guest page, an HTTP redirect
+will take the visitor to it.</p>
+<p>If a group is being used for a particular experiment, subgroups of
+that group may be created to represent different conditions or
+treatments in the experiment. Each user may be assigned to subgroups,
+in addition to their membership in the parent group. Client-side
+applications have access to a user's list of group memberships, and
+can use it to tailor their behavior.</p>
+<p>Each group has controls that determine whether logins are allowed,
+and whether users are allowed to self-register as group members.
+These are normally disabled for a newly created group.</p>
+<div class="hdr">Organization of Client Resources on the Server</div>
+<p>The system for organizing client resources on the server is still
+evolving. At this point in time, the main requirement is to support
+multiple Choicelets, each composed of HTML, Javascript, and CSS
+files, and with some sharing of code and other resources between
+them. The current scheme is a top-level directory containing common
+HTML files, with subdirectories, &ldquo;scripts&rdquo; and &ldquo;css&rdquo;,
+for shared Javascript and CSS files. Within the shared &ldquo;scripts&rdquo;
+directory, there are subdirectories, &ldquo;jquery&rdquo;, &ldquo;model&rdquo;,
+and &ldquo;util&rdquo;, which contain respectively, jQuery and its
+plugins, models for shared Choicelet widgets, and shared utility
+code. Each Choicelet should have its own subdirectory under the top
+level, with subdirectories such as &ldquo;scripts&rdquo; and &ldquo;css&rdquo;
+for files that are specific to a given Choicelet. 
+</p>
+<p>Choicelet HTML files should be Lift templates that will be used to
+generate the actual HTML for the client. Typically that means that
+Choicelet HTML is wrapped in this way:</p>
+<div class="code"><span class="tag">&lt;!DOCTYPE html&gt;
+&lt;html&gt;</span>
+    <span class="tag">&lt;body <span class="attr">class</span>=<span class="string">&quot;lift:content_id=my_content&quot;</span>&gt;</span>
+        <span class="tag">&lt;div <span class="attr">class</span>=<span class="string">&quot;lift:surround?with=default;at=content&quot;</span> <span class="attr">id</span>=<span class="string">&quot;my_content&quot;</span>&gt;</span>
+            <span class="tag">&lt;head_merge&gt;</span>
+            ...code that would normally be in the &lt;head&gt;&lt;/head&gt; section...
+            <span class="tag">&lt;/head_merge&gt;</span>
+            ...Choicelet body HTML...
+        <span class="tag">&lt;/div&gt;</span>
+    <span class="tag">&lt;/body&gt;</span>
+<span class="tag">&lt;/html&gt;</span></div>
+<p>Essentially the content within the
+&ldquo;my_content&rdquo; &lt;div&gt; is wrapped by some standard
+Choicelet HTML from a shared file named &ldquo;default.html&rdquo;.
+However, content within the &lt;head_merge&gt; section is merged into
+the head of the resulting HTML document. So any Choicelet-specific
+Javascript or CSS references should be placed there. Code outside the
+&ldquo;my_content&rdquo; &lt;div&gt; is discarded, but it is useful
+to make the Choicelet HTML file look more like a normal HTML file for
+validation purposes.</p>
+<div class="hdr">Use of require.js, jQuery, and Shared Javascript</div>
+<p>Choicelets are expected to organize Javascript code into modules,
+and actualize them through the use of <a HREF="http://requirejs.org/">require.js</a>.
+To make this easier, the &ldquo;default.html&rdquo; file that wraps
+Choicelet HTML includes a reference to require.js. The base jQuery
+framework is also included this way. A Javascript module can be
+defined with require.js like this:</p>
+<div class="code">
+define([<span class="string">'jquery'</span>, <span class="string">'dependencyA'</span>, <span class="string">'dependencyB'</span>], <span class="keyword">function</span>($, depA, depB) {
+    ...module code...
+    <span class="keyword">return</span> moduleHandle;
+});
+</div>
+<p>Here we have a module that uses jQuery and two other modules,
+&ldquo;dependencyA&rdquo; and &ldquo;dependencyB&rdquo;. Require.js
+dynamically loads these dependencies and then calls the function
+argument of the define statement, passing it the module handles of
+each of the dependencies. This function returns the module handle for
+the current module. A module handle can be anything that provides the
+necessary access to a module. If a module consists of a library of
+functions, the module handle might be an object containing named
+references to each of the functions. If the module defines a type of
+object, the module handle might be the constructor for that object.
+In other cases, the module handle might be a function.</p>
+<p>At the top level of a Choicelet, there would typically be some
+Javascript code using require.js to invoke an initial Javascript
+function.  It might look like this:</p>
+<div class="code">
+require([<span class="string">'jquery'</span>, <span class="string">'lightlet'</span>], <span class="keyword">function</span>($, lightlet) {
+    $(<span class="keyword">function</span>() { lightlet.run(); });
+});
+</div>
+<p>Here it is assumed that the &ldquo;lightlet&rdquo; module returns
+an object which contains a &ldquo;run&rdquo; function as its module
+handle. Notice that the call to run() is wrapped in jQuery's $(), so
+that it doesn't happen until the DOM is ready.</p>
+<p>Another thing that a top-level Choicelet script might do is to
+define paths to other Javascript modules. Suppose that a Choicelet,
+lightlet, had a number of Javascript modules in its &ldquo;scripts&rdquo;
+subdirectory. It could configure require.js using:</p>
+<div class="code">
+require.config({
+    paths: {
+        lightlet: <span class="string">'lightlet/scripts'</span>
+    }
+});
+</div>
+<p>Then a file, &ldquo;lightlet.js&rdquo; in &ldquo;lightlet/scripts/&rdquo;
+could be referenced as &ldquo;lightlet/lightlet&rdquo; in a
+require.js dependency list. Require.js maps the &ldquo;lightlet&rdquo;
+module prefix to the path, &ldquo;lightlet/scripts/&rdquo;. Note that
+&ldquo;.js&rdquo; is left off of module references, and this
+indicates to require.js that a module is expected. However,
+require.js will also load un-modularized .js files this way, but
+their module handles are likely to be undefined. When defining paths
+or referencing other Choicelet files, note that &ldquo;default.html&rdquo;
+sets a &lt;base&gt; in the HTML it generates, and it references the
+top level of the <span class="choice">Choice</span>
+website. So HTML files in a Choicelet subdirectory do not have a
+default base of that subdirectory, but rather an explicit base of the
+top level. 
+</p>
+<p>The &ldquo;default.html&rdquo; file defines several require.js
+module prefixes. Modules in the top-level &ldquo;scripts&rdquo;
+directory can be referenced using the prefix, &ldquo;core&rdquo;. The
+&ldquo;jquery&rdquo; prefix refers to the top-level &ldquo;scripts/jquery/&rdquo;
+directory, which contains many jQuery plugins, including the jQuery
+UI plugin. They can be referenced as &ldquo;jquery/jquery.pluginname&rdquo;.
+But the base jQuery is just &ldquo;jquery&rdquo;. It also defines a
+module prefix, &ldquo;model&rdquo;, to reference Javascript models
+for shared components. And it defines a prefix, &ldquo;util&rdquo;,
+to reference utility libraries and objects, including a random number
+generator, &ldquo;alea&rdquo;, and a module that defines a data type
+for a color. The require.config() operation is cumulative for path
+definitions, so a Choicelet need only define any additional prefixes
+it requires.</p>
+<div class="hdr">Support for Sessions</div>
+<p>A <span class="choice">Choice</span> client
+communicates with the server in the context of a session. The session
+is typically established with the first access to a page on the
+<span class="choice">Choice</span> website, before
+the user is logged in. Once the user is logged in, the session tracks
+the username, group memberships, and roles associated with that user.
+Accesses to session-enabled pages are recorded with timestamps in the
+database. Choicelets and quizzes are session-enabled by including the
+&ldquo;core/choice-session&rdquo; module as a dependency. As a jQuery
+plugin, its functions can be called using $.session('fnname', args).
+It self-initializes through a jQuery page-ready callback, performing
+a &ldquo;getSession&rdquo; operation with the server. In response to
+&ldquo;getSession&rdquo;, the server creates a new session if one
+does not already exist, and returns information about the current
+user if the user is logged in. Clients can wait for this information
+to be available using $.session('onReady', fn), and retrieve it using
+various other functions of the $.session() plugin.</p>
+<div class="hdr">$.session() API</div>
+<div class="code">
+$.session(<span class="string">'getSession'</span>, doneFn)
+
+<div class="annot">This performs the &ldquo;getSession&rdquo; operation with the server. When the server's response
+is received, it is passed as an object to the function specified by doneFn. Then
+it is also passed to any callbacks that were previously registered using
+$.session('onReady', fn). The format of the object is:</div>
+<div class="code">
+{
+    sessionid: {String} a unique session identifier for this session
+    redirect: {String} URL for redirect, if any
+    cgid: {Int} current group id
+    user: {
+        name: {String} login username
+    }
+    groups: {Array} [
+        {
+            gid: {Int} group id
+            name: {String} group name
+            desc: {String} group description
+            member: {String} username in group, if user is a member
+            paths: {Array{String}} path names of the group
+            roles: {Array{String}} roles of user for the group
+        }, ...
+    ]
+}</div>
+<div class="annot">The 'redirect' field is present if the user should be directed to a different page.
+This usually happens when a user who is not logged in accesses a page that requires
+a login. The $.session plugin handles any redirect for the 'getSession' operation
+that it performs during initialization.
+<p>The 'cgid' field is present whether the user is logged in or not, and reflects either
+the group parameter on the page URL, or the id of the default group, &ldquo;/&rdquo;.</p>
+<p>The 'user' field contains an object which currently contains just the login username.
+It is present only if the user is logged in.</p>
+<p>The 'groups' field contains an array of objects, containing one object for each
+group for which the user holds at least one role. It is present only if the user
+is logged in. The fields in this object are:</p></div>
+
+<div class="code">'gid' - the unique integer group id of the group.
+
+'name'   - the short name of the group, which distinguishes it from other
+           subgroups of its parent group(s).
+
+'desc'   - a short description of the group.
+
+'member' - the user's username in the group, but only if the user is a
+           member of the group. A user may have roles for a group without
+           being a member.
+
+'paths'  - an array of all of the path names for the group. Because groups
+           are organized as a directed acyclic graph, a group may have multiple
+           parents, and multiple pathnames that uniquely identify it. However,
+           each pathname will end with the short name of the group.
+
+'roles'  - an array of role names held by the user with respect to the group.
+           The currently defined roles are:
+
+    GUEST      - a role normally assigned to users who are not logged in.
+    CHILD      - usually a research subject
+    SUPERVISOR - a teacher or other activity supervisor
+    ASSOCIATE  - an associate researcher, with limited access to experimental
+		         data
+    PRIMARY    - a primary researcher, with full access to experimental data
+    ADMIN      - an administrator</div>
+
+$.session('<span class="string">onReady</span>', readyFn)
+
+<div class="annot">The function specified by 'readyFn' is called with the session information
+object as soon as a $.session('getSession') operation has fetched it from
+the server. If the session information is already available, 'readyFn' is
+called immediately.</div>
+
+$.session('<span class="string">getSessionId</span>') returns the session id for this session
+
+$.session('<span class="string">getContextRoot</span>')
+
+<div class="annot">Returns the context root of the <span class="choice">Choice</span> website. This can be used to form
+URLs to reference pages, starting from the top level of the website.</div>
+
+$.session('<span class="string">getCurrentGroup</span>')
+
+<div class="annot">This returns the group information for the user's current group. It is
+valid only if the user is logged in.</div>
+
+$.session('<span class="string">getGroups</span>')
+
+<div class="annot">This returns the array of group information objects for the current user.
+It is valid only if the user is logged in.</div>
+
+$.session('<span class="string">getUser</span>')
+
+<div class="annot">This returns the user information object for the currently logged in
+user. As noted above, the 'name' field of this object contains the
+username of the user in the current group.</div>
+
+$.session('<span class="string">getPageName</span>')
+
+<div class="annot">This returns just the page name from the URL of the current page.
+It is the last path component of the URL, with any suffix, such as
+&ldquo;.html&rdquo;, removed. Pages named &ldquo;index.html&rdquo; may be accessed without
+specifying &ldquo;index.html&rdquo;, in which case the page name will be an
+empty string.</div>
+
+$.session('<span class="string">queue</span>', fn)
+
+<div class="annot">Operations to the server often need to happen sequentially, rather
+	than in parallel. This function provides a way to queue server
+	operations for execution after all previously queue operations have
+	completed. It is mostly used internally.</div>
+
+$.session('<span class="string">queuedRedirect</span>', url)
+
+<div class="annot">This queues a redirect to a specified URL, to be performed after
+	other server operations have completed. This function attempts to
+	ensure that even operations queued after it are completed before
+	the redirect is executed, since the redirect will clear the queue.</div>
+
+$.session('<span class="string">logoutUser</span>', resultFn)
+
+<div class="annot">Logout the current user, and call the function specified by 'resultFn'
+	when the server has confirmed the logout. The current session also
+	will be terminated.</div>
+
+$.session('<span class="string">extend</span>', extensions)
+
+<div class="annot">Extend the $.session plugin with additional methods, specified in
+	the 'extensions' object. This is used by the 'login' module to
+	add methods for login and user registration.</div>
+</div>
+<div class="hdr">Model, View, Controller Support</div>
+<p>Choicelet client code should be organized according to a Model,
+View, Controller (MVC) architecture. In particular, the separation of
+the Choicelet model as a separate component that does not reference
+the DOM is central to the data collection strategy. When an
+experimental subject uses a Choicelet, top-level actions on the model
+component are automatically captured, timestamped, and logged on the
+server. Meanwhile, a view component of the Choicelet listens for
+changes in the model, and updates the DOM to show the current state.
+The controller component of the Choicelet listens for DOM events,
+which usually indicate user actions, and initiates corresponding
+actions on the model component.</p>
+<p>Actions on a model may cause it to initiate other actions on
+itself or other sub-models. These actions are considered to be
+consequences of the top-level actions, which will occur every time
+the same sequence of top-level actions is executed against the newly
+initialized model. So they are not logged on the server. But a
+Choicelet view component may listen for them, if they are relevant to
+updating the view. A model may also declare &ldquo;events&rdquo; when
+processing an action. Events are essentially null actions. They are
+not logged, but a view can listen for them.</p>
+<p>When a user reloads a Choicelet page, the initial state of the
+model is restored from the server, and any top-level actions that
+were logged for the model are played back at maximum speed. This
+normally results in the page being restored to the state it was in at
+the time of the reload.</p>
+<p>As it is envisioned, extraction of experimental data will be
+implemented as an alternate view component on the Choicelet model.
+This component will observe the model as it is updated according to
+the previously logged actions of users. It need not interact with the
+DOM at all, but rather will use other <span class="choice">Choice</span>
+infrastructure to save the data it collects. If necessary, the model
+component can be enhanced after the experiment with additional events
+that are useful for data collection, as long as the behavior of the
+model is unchanged.</p>
+<p>It is also anticipated that there will be a generic playback
+controller component for Choicelets, which will enable researchers to
+watch a user's interaction with the Choicelet, at normal or
+accelerated speed. In this configuration, the Choicelet's normal view
+component should do the actual display.</p>
+<div class="hdr">ChoiceModel API</div>
+<p>The ChoiceModel API is
+provided by the 'core/modelLib' module. Its module handle is an
+object containing constructors for ChoiceModel and ChoiceTimer, so it
+looks like this:</p>
+<div class="code">
+{
+    ChoiceModel: ChoiceModel,
+    ChoiceTimer: ChoiceTimer
+}
+</div>
+<p>So a Choicelet model could include
+modelLib as a dependency and use it like this:</p>
+<div class="code">
+define([<span class="string">'core/modelLib'</span>], <span class="keyword">function</span>(modelLib) {
+    var ChoiceModel = modelLib.ChoiceModel,
+        ChoiceTimer = modelLib.ChoiceTimer;
+    <div class="annot">...model code...</div>
+    <span class="keyword">return</span> ColorMixer;
+});
+</div>
+<p>Here the model returns a module handle
+that is its constructor. We will use the ColorMixer model to
+illustrate the API.</p>
+<p>Choicelet models are approximately
+subclasses of ChoiceModel. For ColorMixer, this is accomplished by:</p>
+<div class="code"><span class="keyword">function</span> ColorMixer(palette) {
+    <span class="attr">this</span>.initModel(<span class="string">'cmixer'</span> + ColorMixer.nextId(), arguments);
+    <span class="attr">this</span>.palette = palette;
+    <span class="attr">this</span>.reset();
+}
+	
+ColorMixer.nextId = ChoiceModel.idMaker();
+
+ChoiceModel.define(<span class="string">'ColorMixer'</span>, <span class="string">'0.5'</span>, ColorMixer);
+</div>
+<p>First, the constructor for a ColorMixer model is defined. Inside the
+constructor, the first call is to initModel(), a method that
+ColorMixer inherits from ChoiceModel:</p>
+<div class="code">
+<span class="attr">this</span>.initModel(instanceName, arguments)
+
+instanceName - {String} the name of a particular instance of the model.
+A common way to generate instance names is to append a unique id to a
+string that identifies the model type.
+
+arguments - literally, the Javascript arguments variable.
+</div>
+<p>This creates an association between the specified instance name and the
+model instance that is being initialized by the constructor. When recorded
+actions are retrieved from the server, they reference models by their
+instance names.</p>
+<p>ChoiceModel provides a function that
+returns a function to generate sequential integer ids. This line is
+using that function to define the nextId() function that is used in
+the model constructor:</p>
+<div class="code">
+ColorMixer.nextId = ChoiceModel.idMaker();
+</div>
+<p>Note that it is actually calling idMaker(), not just inheriting it.
+Each time idMaker() is called, it returns a new id generator
+function, which starts generating ids from one.</p>
+<p>This line actually performs the
+inheritance of ColorMixer from ChoiceModel:</p>
+<div class="code">
+ChoiceModel.define(<span class="string">'ColorMixer'</span>, <span class="string">'0.5'</span>, ColorMixer);
+
+ChoiceModel.define(modelName, modelVersion, modelConstructor)
+
+modelName - {String} the name of the model, which is normally the name of
+its constructor.
+
+modelVersion - {String} a version identifier of the model.
+
+ModelConstructor - {function} the model constructor function
+
+The modelName and modelVersion are saved as properties of the modelConstructor,
+'NAME' and 'VERSION', respectively. Methods from ChoiceModel are copied into
+the modelConstructor.prototype object, so that they will be inherited by
+any instances of the model.
+</div>
+<p>Note again that
+ChoiceModel.define() is being called during the definition of the
+model, not during creation of an instance.</p>
+<p>Next, the
+actions supported by the model are defined:</p>
+<div class="code">
+ColorMixer.defAction(<span class="string">'reset'</span>, <span class="keyword">function</span>() {
+<span class="annot">...code for the reset action...</span>
+});
+
+ColorMixer.defAction(<span class="string">'setTarget'</span>, <span class="keyword">function</span>(color) {
+<span class="annot">...code for the setTarget action...</span>
+});
+
+ColorMixer.defAction(<span class="string">'select'</span>, <span class="keyword">function</span>(color) {
+<span class="annot">...code for the select action...</span>
+});
+
+ColorMixer.defAction(<span class="string">'unselect'</span>, <span class="keyword">function</span>(color) {
+<span class="annot">...code for the unselect action...</span>
+});
+
+ColorMixer.defAction(<span class="string">'mix'</span>, <span class="keyword">function</span>() {
+<span class="annot">...code for the mix action...</span>
+});
+
+ModelConstructor.defAction(actionName, actionFn)
+
+actionName &ndash; {String} the name by which the action will be invoked
+and recorded.
+
+ActionFn &ndash; {function} the action function. It may have any number
+of arguments, including a variable number. But its arguments usually
+should be simple data types such as strings and numbers.
+
+DefAction adds a function with the specified actionName to the
+ModelConstructor prototype object. However, that function is not
+actionFn, but a function which wraps actionFn with some infrastructure
+code for logging actions and notifying action listeners when an action
+is invoked.</div>
+<p>A model may also
+define events:</p>
+<div class="code">ColorMixer.defEvent(<span class="string">'dirtyYellow'</span>);</div>
+<p>This creates a
+method dirtyYellow() on ColorMixer, which does nothing with the state
+of the model. But clients of the model can listen for 'dirtyYellow',
+and the model or its clients may call dirtyYellow() on an instance of
+the model, to declare that the event has happened. Events may also
+have arguments, and these are passed to listeners when the event is
+declared. Events are never logged to the server.</p>
+<p>A model can also
+define ordinary methods, but such methods should not change the state
+of the model. They would be used mainly to query the internal state
+of the model. For example:</p>
+<div class="code">ColorMixer.prototype.isCorrect = <span class="keyword">function</span>() {
+    <span class="keyword">if</span> ((<span class="keyword">this</span>.target === <span class="keyword">undefined</span>) || (<span class="keyword">this</span>.result === <span class="keyword">undefined</span>)) {
+        <span class="keyword">throw</span> <span class="keyword">new</span> Error(<span class="string>">'color mixer is not in a compatible state'</span>);
+    }
+    <span class="keyword">return</span> <span class="keyword">this</span>.target === <span class="keyword">this</span>.result;
+};</div>
+<p>This
+function checks whether the result of a mix() action matches the
+target color.</p>
+<p>This
+completes the description of what is needed to define a model. Keep
+in mind that models should not interact with the DOM, so they rarely
+need jQuery as a dependency.</p>
+<p>A
+model inherits several functions from ChoiceModel that are used by
+clients of the model:</p>
+<div class="code">
+listen(actionName, listenFn)
+
+actionName - {String} an action or event name for the model.
+
+listenFn - {function} a function to be called when the action or
+           event happens. The function is called after an action
+           is executed, and is passed the result value, if any,
+           from the action, along with the original arguments of
+           the action (or event). The argument list is:
+<div class="code">
+(model, action, result, args)
+
+model  - {Object} the model instance.
+action - {String} the action or event name. The name may be
+         namespaced, similarly to jQuery events.
+result - the result returned by the action. Not present for
+         an event.
+args   - the original arguments of the action or event.
+</div>
+
+unlisten(actionName)
+
+actionName- {String} an action or event name for the model.</div>
+<p>The listen() and
+unlisten() methods of a model provide its clients with a way to
+observe actions and events on the model. As with jQuery events, a
+namespace suffix can be attached to the action or event name,
+separated by a period. This mainly provides a way to distinguish
+multiple listeners on a model when unlisten() is called. If
+namespaces are not used, unlisten() will remove all listeners for the
+specified action or event. It is also possible to call
+unlisten('.namespace') to remove all listeners for the specified
+namespace.</p>
+<div class="hdr">Using a Model</div>
+<p>In simplest terms, the way to use a model is to create an instance of it using
+its constructor and the Javascript <span class="keyword">new</span> operator.
+Then a view component can use the instance's listen() function to listen
+for actions or events, and update a display (or collect data). A controller
+component can invoke actions on the model instance, based on user interaction.</p>
+<p>However, for the top-level model, things are slightly more complicated.
+The top-level model is associated with a <i>state stream</i> on the server.
+The state stream is created when the instance of the top-level model is
+created. It records the arguments to the constructor of the top-level instance.
+As long as the state stream remains open, top-level actions on any model
+instances are saved in the stream. If the user reloads the page, and a state
+stream is open, the top-level model instance will be recreated from data in
+the stream, and saved actions will be played back against it. This should restore
+the page to its state prior to the reload.</p>
+<p>Model instances inherit a close() function from ChoiceModel:</p>
+<div class="code">
+<span class="keyword">this</span>.close(doneFn)
+
+where <span class="keyword">this</span> is the model instance.
+
+doneFn - {function} a function that is called when the close is
+         completed.
+</div>
+<p>This will close the state stream and call doneFn, if called on the top-level model
+instance. For other model instances, it simply calls doneFn. Generally it should
+be called only on the top-level model instance, when the Choicelet is finished.</p>
+<p>The top-level model instance is created indirectly, using a function in the
+'core/choice-control' module. It is:</p>
+<div class="code">
+$.control(<span class="string">'getState'</span>, constructor, startFn, ...)
+
+constructor - {function} the top-level model constructor
+startFn     - {function} called with the model instance as its argument,
+              once the model instance has been created
+...         - arguments for the model constructor, if any
+</div>
+<p>The 'core/choice-control' module is a jQuery plugin, with its methods accessed
+via $.control(). It should be listed as a dependency of the module which creates
+the top-level model, which is generally not the module that implements the
+top-level model.</p>
+<p>The operation of getState depends on whether a state stream is currently open
+for the session. If no state stream is open, it uses the model constructor to
+create an instance of the top-level model. It opens a new state stream and saves
+the constructor arguments to it. Then it calls the startFn, passing it the
+model instance as an argument.</p>
+<p>If a state stream is open, getState reconstructs the top-level model instance
+from the previously saved constructor arguments, and passes it to startFn as before.
+But when startFn returns, it also plays back any saved actions in the state stream,
+restoring the model state to its previous glory.</p>
+<p>In both cases, the startFn generally will initialize the view and controller
+components of the Choicelet. But if startFn or the controller also perform some
+initial action on the model, to initialize it for example, it needs to avoid
+doing this when the state stream already exists. That's because that initial
+action would have been saved in the stream, and will be replayed against the
+model when startFn returns.</p>
+<p>The choice-control plugin provides methods to test for the different modes of
+operation:</p>
+<div class="code">
+$.control(<span class="string">'isModeNormal'</span>)
+<div class="annot">
+Returns <span class="keyword">true</span> if the current mode of operation is
+normal. Generally that means that actions on the model are happening as a
+result of real-time interaction with a user, as opposed to actions that are
+being played back from a state stream.
+</div>
+$.control(<span class="string">'isModeReload'</span>)
+<div class="annot">
+Returns <span class="keyword">true</span> if the current mode of operation is
+reload. In this mode, actions from a state stream are being played back
+against the model, in order to restore it to a previous state.
+</div>
+$.control(<span class="string">'isModePlayback'</span>)
+<div class="annot">
+Returns <span class="keyword">true</span> if the current mode of operation is
+playback. This means that actions from a saved state stream are being played
+back against the model, but at a rate dependent on their timestamps. This
+would be used by a researcher to view a user's interaction with a Choicelet,
+at either normal or a higher speed.
+</div>
+</div>
+<p>There are a number of other choice-control methods:</p>
+<div class="code">
+$.control(<span class="string">'closeState'</span>, doneFn)
+
+    doneFn - {function} a function to be called after the server has
+    		 responded to the close operation.
+
+<div class="annot">
+This closes the state stream, if any, for the current session. Then it calls
+the doneFn.
+</div>
+$.control(<span class="string">'getMode'</span>)
+
+	Return the current mode: 'normal', 'reload', or 'playback'
+	
+$.control(<span class="string">'getTime'</span>)
+
+    Return the current time, in milliseconds.
+
+<div class="annot">
+For normal mode, this is the actual current time. For reload mode, it
+is the timestamp of the most recent saved action to be played back.
+For playback mode, it is an estimate of the current time, based on the
+last action, and the speed of the playback.
+</div>
+$.control(<span class="string">'alert'</span>, ...)
+
+    ... - string arguments to be concatenated and passed to either the
+          real alert() function, or to console.log().
+
+<div class="annot">
+This performs the same function as the normal Javascript alert() function
+if the current mode is normal. Otherwise it just writes the alert message
+using console.log().
+</div>
+$.control(<span class="string">'defer'</span>, deferFn, deferThis)
+
+deferFn - a function to be called after a delay of 0 milliseconds
+deferThis - the <span class="keyword">this</span> pointer for deferFn
+
+<div class="annot">
+Sometimes it seems you just need to do something after a zero-length
+timeout. This function does that, along with some of the functionality
+of jQuery's $.proxy() function.
+</div>
+$.control(<span class="string">'delay'</span>, delayFn, msec)
+
+delayFn - a function called after a timeout of msec milliseconds
+msec    - timeout in milliseconds
+
+<div class="annot">
+This is essentially the Javascript setTimeout() function, except that
+it calls the delayFn immediately if animation is disabled.
+</div>
+$.control(<span class="string">'animation'</span>, enable, speedup)
+
+enable  - {boolean} <span class="keyword">true</span> if animation should
+          be enabled, or <span class="keyword">false</span> otherwise.
+speedup - {int} ]a multiplier for the speed of animation. Normal speed
+          is the default, which is a value of one.
+
+<div class="annot">
+This controls whether animation is enabled, and at what speed. Animation
+is normally disabled during reload mode, and is disabled when choice-control
+initializes.
+</div>
+</div>
+</body>
+</html>

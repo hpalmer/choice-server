@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html>
+  <head lang="en">
+    <meta content="text/html; charset=UTF-8" http-equiv="content-type">
+    <title>FSChoice Session Operations</title>
+  </head>
+  <body>
+    <h1>FSChoice Session Operations and Session Activities</h1>
+    <p> FSChoice session operations are used to create <em>session activities</em>,
+      which essentially encapsulate some kind of server state for the session,
+      for the duration of the session. Currently two kinds of session activities
+      are supported: a logging mechanism and a set of environment variables. A
+      session can have multiple instances of either or both of these. </p>
+    <p> All session activities start with a <strong>create</strong> operation,
+      which specifies a name for the activity that is unique to the session. If
+      an activity with the specified name already exists for the session, it is
+      first closed, and then the new activity is created. The create operation
+      also specifies the <strong>kind</strong> of activity to be created, and
+      each kind of activity will have its own set of supported operations. All
+      activities also have a <strong>close</strong> operation which terminates
+      the activity. Any open activities are implicitly closed when the session
+      is terminated. </p>
+    <p> All operations on session activities include the name of the activity as
+      the <strong>id</strong> parameter. Operations are accessed from a client
+      via an HTTP POST operation with the parameters in a JSON-encoded body. The
+      URL for the POST typically takes the form: </p>
+    <p style="margin-left: 40px;"> http://<em>host</em>:<em>port</em>/fschoice/?api=session</p>
+    <h3>choice-session.js support</h3>
+    <p>choice-session.js has general support for FSChoice session operations in
+      the form of:</p>
+    <p style="margin-left: 40px;"><span style="font-style: italic;">promise </span>=
+      <span style="font-weight: bold;">$.session('doSessionOp', </span><span style="font-style: italic;">reqobj</span><span
+        style="font-weight: bold;">, </span><span style="font-style: italic;">options</span><span
+        style="font-weight: bold;">)</span></p>
+    <p style="margin-left: 40px;"><span style="font-style: italic;">reqobj </span>-
+      the request object, including at least the <span style="font-weight: bold;">op
+        </span>and <span style="font-weight: bold;">id </span>fields<br>
+      <span style="font-style: italic;">options </span>- jQuery $.ajax options</p>
+    <p>This function returns a promise for the object returned by the session
+      operation. It is also subject to the serialization of Ajax requests that
+      choice-session.js performs.</p>
+    <h2>Session Logger Activity</h2>
+    <p> A session logger activity supports logging to a text file. The file path
+      and MIME type are specified in the <strong>create</strong> operation,
+      with an option to append to an existing file. The only operation it
+      supports other than <strong>create</strong> and <strong>close</strong>
+      is <strong>put</strong>, which writes data to the log. If the data
+      provided is a string, it is written verbatim to the log file. If the data
+      is some other JSON-encoded value, it typically rendered to the log as a
+      string followed by a newline. </p>
+    <h3>create(id, kind, path, [append], [mimetype]) - create a logger</h3>
+    <p style="margin-left: 40px;"><span style="font-weight: bold;">op</span> -
+      "create"<br>
+      <span style="font-weight: bold;">id</span> - the name of the logger as a
+      string<br>
+      <span style="font-weight: bold;">kind</span> - "logger"<br>
+      <span style="font-weight: bold;">path</span> - the file path of the log
+      file, which may or may not already exist<br>
+      <span style="font-weight: bold;">append</span> - a boolean indicating
+      whether subsequent logging should append to an existing file, or overwrite
+      it<br>
+      <span style="font-weight: bold;">mimetype</span> - the MIME type of the
+      log file, which should be some textual type</p>
+    <p style="margin-left: 40px;">This creates a logger with the given name,
+      logging to the file at the given file path. If the file does not already
+      exist, the <span style="font-weight: bold;">mimetype</span> will
+      determine the MIME type of the created file. If the file does exist, the <span
+        style="font-weight: bold;">mimetype</span> is ignored.</p>
+    <h4 style=" margin-left: 40px;">choice-session.js support</h4>
+    <p style="margin-left: 40px;"><span style="font-style: italic;">promise </span>=
+      $.session('openLog', <span style="font-style: italic;">reqobj</span>, <span
+        style="font-style: italic;">options</span>)</p>
+    <p style="margin-left: 40px;">The defaults for this operation are:</p>
+    <p style="margin-left: 80px;"><span style="font-weight: bold;">op</span> -
+      "create"<br>
+      <span style="font-weight: bold;">kind </span>- "logger"<br>
+      <span style="font-weight: bold;">id </span>- "log<br>
+      <span style="font-weight: bold;">append </span>- true<br>
+      <span style="font-weight: bold;">mimetype </span>- "text/plain"</p>
+    <p style="margin-left: 40px;">These can be overridden by fields in the
+      request object, <span style="font-style: italic;">reqobj</span>. The
+      request object should contain at least the <span style="font-weight: bold;">path
+        </span>argument.<br>
+    </p>
+    <h3>put(id, data) - write to log</h3>
+    <p style="margin-left: 40px;"><span style="font-weight: bold;">op</span> -
+      "put"<br>
+      <span style="font-weight: bold;">id</span> - the name given the logger
+      when it was created<br>
+      <span style="font-weight: bold;">data</span> - the data to be written to
+      the log</p>
+    <p style="margin-left: 40px;">The specified data is written to the log. If
+      the data is not a string, it is converted to a string, which is then
+      written with a terminating newline to the log.</p>
+    <h4 style=" margin-left: 40px;">choice-session.js support</h4>
+    <p style="margin-left: 40px;"><span style="font-style: italic;">promise </span>=
+      $.session('log', <span style="font-style: italic;">reqobj</span>, <span
+        style="font-style: italic;">options</span>)</p>
+    <p style="margin-left: 40px;">The defaults for this operation are:</p>
+    <p style="margin-left: 80px;"><span style="font-weight: bold;">op</span> -
+      "put"<br>
+      <span style="font-weight: bold;">kind </span>- "logger"<br>
+      <span style="font-weight: bold;">id </span>- "log</p>
+    <p style="margin-left: 40px;">These can be overridden by fields in the
+      request object, reqobj. The request object should include the <span style="font-weight: bold;">data
+        </span>argument.</p>
+    <h3>close(id) - close the logger</h3>
+    <p style="margin-left: 40px;"><span style="font-weight: bold;">op</span> -
+      "close"<br>
+      <span style="font-weight: bold;">id</span> - the name of the logger to be
+      closed</p>
+    <p style="margin-left: 40px;">This closes the log file and terminates the
+      logger.</p>
+    <h4 style=" margin-left: 40px;">choice-session.js support</h4>
+    <p style="margin-left: 40px;"><span style="font-style: italic;">promise </span>=
+      $.session('closeLog', <span style="font-style: italic;">reqobj</span>, <span
+        style="font-style: italic;">options</span>)</p>
+    <p style="margin-left: 40px;">The defaults for this operation are:</p>
+    <p style="margin-left: 80px;"><span style="font-weight: bold;">op</span> -
+      "close"<br>
+      <span style="font-weight: bold;">kind </span>- "logger"<br>
+      <span style="font-weight: bold;">id </span>- "log<br>
+    </p>
+    <p style="margin-left: 40px;">These can be overridden by fields in the
+      request object. In practice, only the <span style="font-weight: bold;">id
+      </span>might have a different value. The returned object contains:</p>
+    <p style="margin-left: 80px;"><span style="font-weight: bold;">status</span>
+      - a code of 1 if successful, otherwise a negative value and the <span style="font-weight: bold;">msg</span>
+      field should be present<br>
+      <span style="font-weight: bold;">msg</span> - an error message if <span style="font-weight: bold;">status</span>
+      is negative<br>
+      <span style="font-weight: bold;"></span></p>
+    <h2>Session Environment Activity</h2>
+    <p>A session environment activity supports the storage of environment
+      variables on the server for the duration of the session. Each environment
+      variable has a name and a stack of values. The value of an environment
+      variable can be set by overwriting any current value (set), or by pushing
+      a new value on the stack, or by popping a value from the stack.
+      Environment values are presented to the server and returned to the client
+      as strings. An environment also can be initialized by passing a
+      JSON-encoded object, where the keys of the object are the names of the
+      environment variables, and the values are their values.</p>
+    <p>Multiple environment activities with different names can be created for
+      the same session. The variables stored in an activity do not persist when
+      the activity is closed.</p>
+    <p>There is currently no support in choice-session.js for environment
+      activities, aside from the generic 'doSessionOp' function.</p>
+    <h3>create(id, kind) - create an environment activity</h3>
+    <p style="margin-left: 40px;"><span style="font-weight: bold;">op</span> -
+      "create"<br>
+      <span style="font-weight: bold;">id </span>- the name of the environment
+      as a string<br>
+      <span style="font-weight: bold;">kind</span> - "environ"</p>
+    <p style="margin-left: 40px;">This creates an initially empty environment
+      activity. The result of the operation is an object containing:</p>
+    <p style="margin-left: 80px;"><span style="font-weight: bold;">status</span>
+      - a code of 1 if successful, otherwise a negative value and the <span style="font-weight: bold;">msg</span>
+      field should be present<br>
+      <span style="font-weight: bold;">msg</span> - an error message if <span style="font-weight: bold;">status</span>
+      is negative</p>
+    <h3>init(id, env)</h3>
+    <p style="margin-left: 40px;"><span style="font-weight: bold;">op</span> -
+      "init"<br>
+      <span style="font-weight: bold;">id</span> - the name given the
+      environment when it was created<br>
+      <span style="font-weight: bold;">env</span> - an object containing an
+      initial set of environment variables and values<br>
+      <br>
+      This initializes the named environment with the variables and values
+      specified in the <span style="font-weight: bold;">env</span> object. The
+      values should be strings. This replaces all pre-existing variables in the
+      environment. The result of the operation is an object containing:</p>
+    <p style="margin-left: 80px;"><span style="font-weight: bold;">status</span>
+      - a code of 1 if successful, otherwise a negative value and the <span style="font-weight: bold;">msg</span>
+      field should be present<br>
+      <span style="font-weight: bold;">msg</span> - an error message if <span style="font-weight: bold;">status</span>
+      is negative<br>
+    </p>
+    <h3>get(id, name) - get the value of the named environment variable</h3>
+    <p style="margin-left: 40px;"><span style="font-weight: bold;">op</span> -
+      "get"<br>
+      <span style="font-weight: bold;">id</span> - the name given the
+      environment when it was created<br>
+      <span style="font-weight: bold;">name</span> - the name of the environment
+      variable whose value is to be retrieved</p>
+    <p style="margin-left: 40px;">The current value of the named environment
+      variable is returned in an object with the environment variable name and
+      value as a (key: value) pair. The returned object contains:</p>
+    <p style="margin-left: 80px;"><span style="font-weight: bold;">status</span>
+      - a code of 1 if successful, otherwise a negative value and the <span style="font-weight: bold;">msg</span>
+      field should be present<br>
+      <span style="font-weight: bold;">msg</span> - an error message if <span style="font-weight: bold;">status</span>
+      is negative<br>
+      <span style="font-weight: bold;">result</span> - an object containing the
+      variable name and value</p>
+    <h3>set(id, name, [value]) - set an environment variable value</h3>
+    <p style="margin-left: 40px;"><span style="font-weight: bold;">op</span> -
+      "set"<br>
+      <span style="font-weight: bold;">id</span> - the name given the
+      environment when it was created<br>
+      <span style="font-weight: bold;">name</span> - the name of the environment
+      variable whose value is to be set<br>
+      <span style="font-weight: bold;">value</span> - an optional string which
+      becomes the new value of the environment variable</p>
+    <p style="margin-left: 40px;">This sets the named environment variable value
+      to the value specified, if any, replacing the stack of values with a stack
+      containing only the given value. If the value is not specified, this
+      essentially removes the named variable from the environment. The returned
+      object contains:</p>
+    <p style="margin-left: 80px;"><span style="font-weight: bold;">status</span>
+      - a code of 1 if successful, otherwise a negative value and the <span style="font-weight: bold;">msg</span>
+      field should be present<br>
+      <span style="font-weight: bold;">msg</span> - an error message if <span style="font-weight: bold;">status</span>
+      is negative<br>
+      <span style="font-weight: bold;">result</span> - an object containing the
+      variable name and previous value, if any</p>
+    <h3>push(id, name, value) - push a value on the stack of an environment
+      variable</h3>
+    <p style="margin-left: 40px;"><span style="font-weight: bold;">op</span> -
+      "push"<br>
+      <span style="font-weight: bold;">id</span> - the name given the
+      environment when it was created<br>
+      <span style="font-weight: bold;">name</span> - the name of the environment
+      variable for which a value is to be pushed<br>
+      <span style="font-weight: bold;">value</span> - the value to be pushed,
+      which becomes the current value of the environment variable</p>
+    <p style="margin-left: 40px;"> </p>
+    <p style="margin-left: 40px;">The specified value is pushed on the value
+      stack of the named environment variable. It becomes the value that is
+      retrieved by a <span style="font-weight: bold;">get</span> operation, but
+      the previous value can be restored by popping the value stack. The
+      returned object contains:</p>
+    <p style="margin-left: 80px;"><span style="font-weight: bold;">status</span>
+      - a code of 1 if successful, otherwise a negative value and the <span style="font-weight: bold;">msg</span>
+      field should be present<br>
+      <span style="font-weight: bold;">msg</span> - an error message if <span style="font-weight: bold;">status</span>
+      is negative<br>
+      <span style="font-weight: bold;">result</span> - an object containing the
+      variable name and previous value, if any<br>
+    </p>
+    <h3> pop(id, name) - pop the current value off the stack of an environment
+      variable</h3>
+    <p style="margin-left: 40px;"><span style="font-weight: bold;">op</span> -
+      "pop"<br>
+      <span style="font-weight: bold;">id</span> - the name given the
+      environment when it was created<br>
+      <span style="font-weight: bold;">name</span> - the name of the environment
+      variable for which a value is to be popped<br>
+      <span style="font-weight: bold;"></span></p>
+    <p style="margin-left: 40px;">This pops a value off the value stack of the
+      named environment variable. The next value on the stack, if any, becomes
+      the current value of the variable, and is returned in the result. The
+      returned object contains:</p>
+    <p style="margin-left: 80px;"><span style="font-weight: bold;">status</span>
+      - a code of 1 if successful, otherwise a negative value and the <span style="font-weight: bold;">msg</span>
+      field should be present<br>
+      <span style="font-weight: bold;">msg</span> - an error message if <span style="font-weight: bold;">status</span>
+      is negative<br>
+      <span style="font-weight: bold;">result</span> - an object containing the
+      variable name and the previous, now current, value, if any</p>
+    <h3>close(id) - close an environment</h3>
+    <p style="margin-left: 40px;"><span style="font-weight: bold;">op</span> -
+      "close"<br>
+      <span style="font-weight: bold;">id</span> - the name of the environment
+      to be closed</p>
+    <p style="margin-left: 40px;">This closes the environment. The environment
+      variables and their values are discarded. The returned object contains:</p>
+    <p style="margin-left: 80px;"><span style="font-weight: bold;">status</span>
+      - a code of 1 if successful, otherwise a negative value and the <span style="font-weight: bold;">msg</span>
+      field should be present<br>
+      <span style="font-weight: bold;">msg</span> - an error message if <span style="font-weight: bold;">status</span>
+      is negative<br>
+      <span style="font-weight: bold;"></span></p>
+    <p><br>
+      <span style="font-weight: bold;"></span></p>
+    <p> </p>
+    <h3> </h3>
+    <p style="margin-left: 80px;"></p>
+  </body>
+</html>

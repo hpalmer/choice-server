@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+    <body class="lift:content_id=my_content">
+		<div class="lift:surround?with=default;at=content" id="my_content">
+	<head_merge>
+		<title>Play Black Box</title>
+    	<link type="text/css" href="css/blackbox.css" rel="Stylesheet" />
+    	<link type="text/css" href="css/humanity/jquery-ui-1.10.3.custom.css" rel="Stylesheet" />
+    	<script type="text/javascript">
+	    	require(['jquery', 'core/blackbox'], function($, bbox) {
+	    		$(function() {
+		    		bbox();
+	    		});
+	    	});
+    	</script>
+	</head_merge>
+			<div id="bbhdr">Black Box</div>
+			<div id="gamearea">
+	        	<div id="testboard"><br /></div>
+	        	<div id="button-panel">
+	        		<div class="ui-widget">
+		        		<label for="rows">Rows:</label>
+		        		<input type="text" id="rows" name="rows" value="8" size="2" />
+	        		</div>
+	        		<div class="ui-widget">
+		        		<label for="cols">Columns:</label>
+		        		<input type="text" id="cols" name="cols" value="8" size="2" />
+	        		</div>
+	        		<div class="ui-widget">
+		        		<label for="balls">Balls:</label>
+		        		<input type="text" id="balls" name="balls" value="5" size="2" />
+	        		</div>
+	        		<input type="button" id="start" name="start" value="Start Game" />
+	        		<input type="button" id="solve" name="solve" value="Solve!" />
+	        	</div>
+	        </div>
+        </div>
+	</body>
+</html>
