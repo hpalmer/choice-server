@@ -1,4 +1,4 @@
-###Stanford GSE AAALab Choice Server
+### Stanford GSE AAALab Choice Server
 
 This is a
 [Scala](https://www.scala-lang.org/)/[Lift](https://liftweb.net/)-based
