@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Context antiResourceLocking="false" cachingAllowed="false" >
+  <Resource name="jdbc/choice"
+            auth="Container"
+            type="javax.sql.DataSource"
+            factory="org.apache.tomcat.jdbc.pool.DataSourceFactory"
+            jdbcInterceptors="org.apache.tomcat.jdbc.pool.interceptor.ConnectionState;org.apache.tomcat.jdbc.pool.interceptor.StatementFinalizer"
+            testWhileIdle="true"
+            testOnBorrow="true"
+            testOnReturn="false"
+            username="username"
+            password="password"
+            driverClassName="com.mysql.jdbc.Driver"
+            url="jdbc:mysql://127.0.0.1:3306/choice?useSSL=false&amp;autoReconnect=true"
+            maxActive="16"
+            maxIdle="8"
+            minIdle="4"
+            validationQuery="select 1"
+            removeAbandoned="true"
+            removeAbandonedTimeout="60"
+            logAbandoned="true"
+            />
+</Context>

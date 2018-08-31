@@ -61,8 +61,6 @@ lazy val choice = (project in file("."))
             "org.scala-lang" %  "scala-compiler" % scalaVersion.toString,
             "mysql" %  "mysql-connector-java" % mysqlConnectorVersion % "provided",
             "org.apache.tika" %  "tika-core" % "1.18" % "compile",
-            "org.apache.tomcat" % "tomcat-catalina" % "7.0.70" % "provided",
-            "org.apache.tomcat" % "tomcat-jdbc" % "7.0.70" % "provided",
             "org.scalatest"     %% "scalatest"   % "3.0.3" % Test withSources(),
             "junit"             %  "junit"       % "4.12"  % Test
         ),

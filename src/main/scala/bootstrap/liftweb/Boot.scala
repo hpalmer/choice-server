@@ -30,7 +30,6 @@ import ch.qos.logback.classic.LoggerContext
 import ch.qos.logback.classic.joran.JoranConfigurator
 import choice.core._
 import choice.fs.ChoiceData
-import javax.naming.{Context, InitialContext}
 import net.liftweb.actor.ThreadPoolRules
 import net.liftweb.common._
 import net.liftweb.db.{DB, StandardDBVendor}
@@ -39,7 +38,6 @@ import net.liftweb.http.provider.servlet.HTTPServletContext
 import net.liftweb.util.Helpers._
 import net.liftweb.util._
 import org.slf4j.LoggerFactory
-import org.apache.tomcat.jdbc.pool.{DataSource, PoolProperties}
 
 import scala.xml.NodeSeq
 
@@ -50,11 +48,23 @@ import scala.xml.NodeSeq
 class Boot {
     import Boot.logger
 
+    /**
+      * When running under Tomcat, this should return the value of catalina.base if it's defined,
+      * or otherwise the value of catalina.home. If neither is defined, this will be None, and
+      * the assumption is that Tomcat is not the servlet container.
+      */
     lazy val catalinaFolder : Option[String] = {
         Option(System.getProperty("catalina.base")) orElse Option(System.getProperty("catalina.home"))
     }
 
-    def openTomcatFile(folderName : String, name : String) : Box[InputStream] = {
+    /**
+      * Try to get an input stream for a file in a folder.
+      *
+      * @param folderName the path to the folder
+      * @param name the name of the file in the folder
+      * @return a boxed InputStream, with a Failure if the file does not exist or cannot be read
+      */
+    def openFileInFolder(folderName : String, name : String) : Box[InputStream] = {
         tryo { new FileInputStream(new File(folderName, name)) } or Empty
     }
 
@@ -63,76 +73,52 @@ class Boot {
         val configurator = new JoranConfigurator()
         configurator.setContext(lc)
 
+        def helper(name : String, xmlInput : InputStream) : Box[Unit] = {
+            System.out.println(s"Configuring logback with: $name")
+            tryo {
+                lc.reset()
+                configurator.doConfigure(xmlInput)
+            }
+        }
+
+        // Use the same naming convention with respect to run.mode for logback.xml files
+        // as Lift uses for property files.
         val logbackNames = Props.toTry map { f ⇒ s"${f()}logback.xml" }
-        val firstAttempt = catalinaFolder.map(Paths.get(_, "conf").toString) match {
-            case Some(folderName) ⇒
-                first(logbackNames map { name ⇒
-                    (Paths.get(folderName, name).toString, () ⇒ openTomcatFile(folderName, name))
-                }) {
-                    case (name, f) ⇒
-                        f() flatMap { instream ⇒
-                            System.out.println(s"Configuring logback with: $name")
-                            tryo {
-                                lc.reset()
-                                configurator.doConfigure(instream)
-                            }
-                        }
+
+        // Search first in a context-specific folder under ${catalina.base}/conf/Catalina/localhost
+        val firstAttempt = catalinaFolder match {
+            case Some(catalina) ⇒
+                val contextPath = LiftRules.context.path.split('/')
+                val relFolderPath = Seq("conf", "Catalina", "localhost") ++ contextPath
+                val folderName = Paths.get(catalina, relFolderPath : _*).toString
+                first(logbackNames) { name ⇒
+                    val fullPath = Paths.get(folderName, name).toString
+                    for {
+                        xmlInput ← openFileInFolder(folderName, name)
+                        result ← helper(fullPath, xmlInput)
+                    } yield result
                 }
             case None ⇒ Empty
         }
 
-        firstAttempt or {
-            first(logbackNames map { name ⇒
-                (name, () ⇒ {
-                    Box.legacyNullTest(getClass.getResource(name))
-                })
-            }) {
-                case (name, f) ⇒
-                    f() flatMap { url ⇒
-                        System.out.println(s"Configuring logback with: $name")
-                        tryo {
-                            lc.reset()
-                            configurator.doConfigure(url)
-                        }
-                    }
-            }
+        // Failing that, look for a resource deployed via the .war file
+        firstAttempt orElse first(logbackNames) { name ⇒
+            for {
+                url ← Box !! getClass.getResource(name)
+                xmlInput ← tryo(url.openStream())
+                result ← helper(name, xmlInput)
+            } yield result
         }
     }
 
     def initializeDbVendor() : Unit = {
-        val driverBox = Props.get("db.driver")
-        val urlBox = Props.get("db.url")
-        val user = Props.get("db.user")
-        val password = Props.get("db.password")
-
-        (driverBox, urlBox) match {
-            case (Full(driver), Full(url)) ⇒
-                val dbprops = Props.props.keys filter {
-                    case n if !n.startsWith("db.") ⇒ false
-                    case "db.driver" | "db.url" | "db.user" | "db.password" ⇒ false
-                    case _ ⇒ true
-                }
-                // Add any additional db.* parameters to url query string
-                val urlAndQuery = dbprops.foldLeft(url) { (urlAcc, name) ⇒
-                    val sname = name.substring(3)
-                    Props.get(name) match {
-                        case Full(s) ⇒
-                            val sep = if (urlAcc contains '?') "&" else "?"
-                            urlAcc + s"$sep$sname=$s"
-                        case _ ⇒ urlAcc
-                    }
-                }
-                val vendor = new StandardDBVendor(driver, urlAndQuery, user, password)
-                LiftRules.unloadHooks.append(() ⇒ vendor.closeAllConnections_!())
-                DB.defineConnectionManager(DefaultConnectionIdentifier, vendor)
-            case (Full(_), _) ⇒ throw new RuntimeException("missing db.url property")
-            case (_, Full(_)) ⇒ throw new RuntimeException("missing db.driver property")
-            case _ ⇒ throw new RuntimeException("missing db.driver and db.url properties")
-        }
-    }
-
-    def initializeDataSourceVendor() : Unit = {
+        // Running under Tomcat, it is preferred to configure the database as a JNDI resource.
+        // If that has been done, no further action is needed here, since Lift can generate
+        // a DB connection vendor from the JNDI name. When JNDI is used, Lift assumes that
+        // the associated connection manager provides connection pooling, which Tomcat does.
         if (!DB.jndiJdbcConnAvailable_?) {
+            // Fallback database configuration if the JNDI resource is not defined.
+            // This uses a rudimentary connection pool provided by Lift.
             val driverBox = Props.get("db.driver")
             val urlBox = Props.get("db.url")
             val user = Props.get("db.user")
@@ -155,34 +141,11 @@ class Boot {
                             case _ ⇒ urlAcc
                         }
                     }
-                    val poolProperties = new PoolProperties()
-                    poolProperties.setDriverClassName(driver)
-                    poolProperties.setUrl(urlAndQuery)
-                    user foreach poolProperties.setUsername
-                    password foreach poolProperties.setPassword
-                    Props.get("dbpool.jdbcInterceptors") foreach poolProperties.setJdbcInterceptors
-                    poolProperties.setLogAbandoned(Props.getBool("dbpool.logAbandoned", defVal = true))
-                    poolProperties.setMaxActive(Props.getInt("dbpool.maxActive", 16))
-                    poolProperties.setMaxIdle(Props.getInt("dbpool.maxIdle", 8))
-                    poolProperties.setMaxWait(Props.getInt("dbpool.maxWait", 30000))
-                    poolProperties.setMinIdle(Props.getInt("dbpool.minIdle", 4))
-                    poolProperties.setRemoveAbandoned(Props.getBool("dbpool.removeAbandoned", defVal = true))
-                    poolProperties.setRemoveAbandonedTimeout(Props.getInt("dbpool.removeAbandonedTimeout", 60))
-                    poolProperties.setTestOnBorrow(Props.getBool("dbpool.testOnBorrow", defVal = true))
-                    poolProperties.setTestOnReturn(Props.getBool("dbpool.testOnReturn", defVal = false))
-                    poolProperties.setTestWhileIdle(Props.getBool("dbpool.testWhileIdle", defVal = true))
-                    poolProperties.setValidationInterval(Props.getLong("dbpool.validationInterval", 3000))
-                    Props.get("dbpool.validationQuery") foreach poolProperties.setValidationQuery
-                    val dsource = new DataSource(poolProperties)
-                    val cipath = DefaultConnectionIdentifier.jndiName.split('/').dropWhile(_ == "")
-                    val ic = new InitialContext()
-                    val lastctx = {
-                        if (cipath.length > 1) {
-                            cipath.dropRight(1).foldLeft(ic : Context) { (nctx, name) ⇒ nctx.createSubcontext(name) }
-                        }
-                        else ic
-                    }
-                    lastctx.bind(cipath.last, dsource)
+                    val vendor = new StandardDBVendor(driver, urlAndQuery, user, password)
+                    LiftRules.unloadHooks.append(() ⇒ vendor.closeAllConnections_!())
+                    DB.defineConnectionManager(DefaultConnectionIdentifier, vendor)
+                    // Try a connection. This will abort the servlet if it fails
+                    vendor.newConnection(DefaultConnectionIdentifier) foreach vendor.releaseConnection
                 case (Full(_), _) ⇒ throw new RuntimeException("missing db.url property")
                 case (_, Full(_)) ⇒ throw new RuntimeException("missing db.driver property")
                 case _ ⇒ throw new RuntimeException("missing db.driver and db.url properties")
@@ -192,14 +155,33 @@ class Boot {
 
     def boot() : Unit = {
 
-        // Look for the Lift property files in catalina.base or else catalina.home. If not found
-        // there, the usual places relative to the classpath are also searched.
-        Props.whereToLook = catalinaFolder.map(Paths.get(_, "conf").toString) match {
-            case Some(folderName) ⇒
+        // Make some system properties available for interpolation in our property files.
+        val systemProperties = Seq(
+            "catalina.base",
+            "catalina.home"
+        )
+        val systemPList = systemProperties.foldLeft(Seq.empty[(String, String)]) { (seq, pname) ⇒
+            Option(System.getProperty(pname)) match {
+                case Some(pvalue) ⇒ seq :+ (pname → pvalue)
+                case None ⇒ seq
+            }
+        }
+        if (systemPList.nonEmpty) Props.appendInterpolationValues(Map(systemPList : _*))
+
+        // Look for the Lift property files in catalina.base or else catalina.home. Specifically
+        // we are looking for ${catalina.base}/conf/Catalina/localhost/${contextPath} as a folder
+        // that might exist and contain property files. If a property file relevant to the current
+        // run.mode is not found there, the usual places relative to the classpath are also searched.
+        Props.whereToLook = catalinaFolder match {
+            case Some(catalina) ⇒
+                val contextPath = LiftRules.context.path.split('/')
+                val relFolderPath = Seq("conf", "Catalina", "localhost") ++ contextPath
+                val folderName = Paths.get(catalina, relFolderPath : _*).toString
+                Props.appendInterpolationValues(Map("choice.ConfigFolder" → folderName))
                 System.out.println(s"Searching for property files in $folderName")
                 () ⇒ Props.toTry map { f ⇒
                     val name = s"${f()}props"
-                    (Paths.get(folderName, name).toString, () ⇒ openTomcatFile(folderName, name))
+                    (Paths.get(folderName, name).toString, () ⇒ openFileInFolder(folderName, name))
                 }
             case None ⇒ () ⇒ Nil
         }
@@ -264,8 +246,7 @@ class Boot {
         // This is needed to keep JNDI lookup working in worker threads
         ThreadPoolRules.nullContextClassLoader = false
 
-        // initializeDbVendor()
-        initializeDataSourceVendor()
+        initializeDbVendor()
 
         // where to search snippet
         LiftRules.addToPackages("choice")

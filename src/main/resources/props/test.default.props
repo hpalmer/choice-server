@@ -1,0 +1,51 @@
+# Properties in this file will be read when -Drun.mode=development or not defined
+
+# This is the JNDI name used to access the SQL database used by the server. The
+# database is configured in the context.xml file.
+default.jndi.name=jdbc/choice
+
+## Facebook login configuration
+
+# The server at one time supported login using Facebook credentials. This feature
+# has not been used or maintained, but the code is still there.
+#facebook.secret=<secret for Facebook login>
+
+## Google login configuration
+
+# Login and user registration using Google credentials is supported. To enable that,
+# a client id and secret must be obtained from Google and entered here. And the
+# appropriate attributes must be set on the user group.
+#google.client.id=<client id for Google login>
+#google.client.secret=<client secret for Google login>
+
+## Mailer configuration
+
+# The server is capable of sending email, for example as part of a user registration
+# or password reset process. These properties configure the default system mailer
+# object, though other mailer objects can be created. A typical configuration is
+# to use a mail relay agent, such as postfix, on the local system, which makes the
+# connection to the SMTP server. But a direct SMTP server connection also can be
+# configured.
+mailer.system.host=localhost
+mailer.system.port=25
+mailer.system.auth=false
+mailer.system.starttls=false
+# Supply these if auth=true:
+# mailer.system.username=username
+# mailer.system.password=password
+
+## Host places accessed by the server
+
+# Folder to contain Choice filesystem data files
+choice.HostDataFolder=${catalina.base}/ChoiceData
+
+# Alternate location of configuration files
+choice.ConfigFolder=${choice.ConfigFolder}
+
+## Server tuning parameters
+
+# Maximum number of VNodes cached by DbManager
+choice.VNodeCacheLimit=500
+
+# Maximum number of FsName entries cached by DbManager
+choice.FsNameCacheLimit=1000
